@@ -59,11 +59,17 @@ void sumMatrixOnGPU(float *d_A, float *d_B, float *d_C, const int nx, const int 
     int y_total = blockDim.y * gridDim.y;
     int ix = threadIdx.x + blockIdx.x * blockDim.x;
     int iy = threadIdx.y + blockIdx.y * blockDim.y;
-    int index;
-    for(int i=0;i<ny / y_total;i++){
-        for(int j=0;j<nx / x_total;j++){
-            index = (ix + j * x_total) + nx * (iy + i * y_total);
-            d_C[index] = d_A[index] + d_B[index];
+    int index,cycle_x,cycle_y;
+    cycle_x = (nx + x_total - 1) / x_total;
+    cycle_y = (ny + y_total - 1) / y_total;
+    for(int i=0;i<cycle_y;i++){
+        for(int j=0;j<cycle_x;j++){
+            int new_ix = ix + j * x_total;
+            int new_iy = iy + i * y_total;
+            if(new_ix < nx && new_iy < ny){
+                index = new_ix + nx * new_iy;
+                d_C[index] = d_A[index] + d_B[index];
+            }
         }
     }
     return ;
@@ -85,8 +91,8 @@ int main(int argc, char **argv){
     // initial data
     int n;
     scanf("%d",&n);
-    int nx = 1 << n;
-    int ny = 1 << n;
+    int nx = (1 << n) + 200;
+    int ny = (1 << n) + 200;
     int nxy = nx * ny;
     int nBytes = nxy * sizeof(float);
 

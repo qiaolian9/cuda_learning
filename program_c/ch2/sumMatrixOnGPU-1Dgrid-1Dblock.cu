@@ -112,7 +112,7 @@ int main(int argc, char **argv){
     printf("Matrix add time cost time %f ms\n",iElaps);
 
     // device code run
-    dim3 block(32);
+    dim3 block(128);
     dim3 grid((nx + block.x - 1) / block.x);
     
     iStart = cpuMSecond();

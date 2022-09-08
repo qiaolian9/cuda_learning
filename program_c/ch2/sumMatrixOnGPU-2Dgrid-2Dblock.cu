@@ -11,17 +11,17 @@
         printf("code:%d, reason %s\n",error, cudaGetErrorString(error));                 \
         exit(1);                                                                         \
     }                                                                                    \
-}   
+}                                                                                        \
 
-void initialData(float *ip, const unsigned int nxy){
+void initialData(float *ip, const int nxy){
     time_t t;
     srand((unsigned) time(&t));
-    for(unsigned int i=0;i<nxy;i++){
+    for(int i=0;i<nxy;i++){
         ip[i] = (float)(rand() & 0xFF) / 10.0f;
     }
 }                                                                                     
 
-void checkResult(float *hostRef, float *gpuRef, const int nx, const int ny){
+void checkResults(float *hostRef, float *gpuRef, const int nx, const int ny){
     bool match = 1;
     double epsilon = 1.0E-9;
     for(int i=0;i<ny;i++){
@@ -34,11 +34,12 @@ void checkResult(float *hostRef, float *gpuRef, const int nx, const int ny){
                 break;
             }
         }
+        if(!match) break;
     }
     if(match) printf("Matrix Match!\n");
 }
 
-double cpuSecond(){
+double cpuMSecond(){
     struct timeval tp;
     gettimeofday(&tp,NULL);
     return ((double)tp.tv_sec * 1.0E3 + (double)tp.tv_usec * 1.0E-3);
@@ -56,42 +57,78 @@ __global__
 void sumMatrixOnGPU(float *d_A, float *d_B, float *d_C, const int nx, const int ny){
     int ix = threadIdx.x + blockIdx.x * blockDim.x;
     int iy = threadIdx.y + blockIdx.y * blockDim.y;
-    unsigned int index = iy * nx + ix;
+    int index = iy * nx + ix;
     if(ix < nx && iy < ny){
         d_C[index] = d_A[index] + d_B[index];
     }
+    return ;
 }
 
 int main(int argc, char **argv){
     // initial environment
+    double iStart, iElaps;
     printf("%s starting...\n",argv[0]);
     int dev = 3;
     cudaDeviceProp deviceProp;
-    CHECK(cudaDeviceProperties(&deviceProp,dev));
+    CHECK(cudaGetDeviceProperties(&deviceProp,dev));
     printf("Using Device %d : %s\n",dev,deviceProp.name);
     CHECK(cudaSetDevice(dev));
 
     // initial data
-    int nx = 1 << 15;
-    int ny = 1 << 15;
-    unsigned int nxy = nx * ny;
+    int n;
+    scanf("%d",&n);
+    int nx = 1 << n;
+    int ny = 1 << n;
+    int nxy = nx * ny;
+    int nBytes = nxy * sizeof(float);
 
     // initial host memory
     float *A, *B, *hostRef, *gpuRef;
-    A = (float*)malloc(nxy * sizeof(float));
-    B = (float*)malloc(nxy * sizeof(float));
-    hostRef = (float*)malloc(nxy * sizeof(float));
-    gpuRef = (float*)malloc(nxy * sizeof(float));
+    A = (float*)malloc(nBytes);
+    B = (float*)malloc(nBytes);
+    hostRef = (float*)malloc(nBytes);
+    gpuRef = (float*)malloc(nBytes);
     initialData(A,nxy);
     initialData(B,nxy);
-    initialData(hostRef,nxy);
-    initialData(gpuRef);
 
     // initial device memory
     float *d_A, *d_B, *d_C;
+    cudaMalloc((void**)&d_A, nBytes);
+    cudaMalloc((void**)&d_B, nBytes);
+    cudaMalloc((void**)&d_C, nBytes);
 
+    cudaMemcpy(d_A,A,nBytes,cudaMemcpyHostToDevice);
+    cudaMemcpy(d_B,B,nBytes,cudaMemcpyHostToDevice);
 
-    float 
+    // host code run
+    iStart = cpuMSecond();
+    sumMatrix(A,B,hostRef,nx,ny);
+    iElaps = cpuMSecond() - iStart;
+    printf("Matrix add time cost time %f ms\n",iElaps);
+
+    // device code run
+    dim3 block(32,32);
+    dim3 grid((nx + block.x - 1) / block.x, (ny + block.y - 1) / block.y);
+    
+    iStart = cpuMSecond();
+    sumMatrixOnGPU<<<grid,block>>>(d_A,d_B,d_C,nx,ny);
+    cudaDeviceSynchronize();
+    iElaps = cpuMSecond() - iStart;
+    printf("Matrix add cuda(2Dgrid-2Dblock) time cost %f ms\n",iElaps);
+
+    cudaMemcpy(gpuRef,d_C,nBytes,cudaMemcpyDeviceToHost);
+    checkResults(hostRef,gpuRef,nx,ny);
+
+    // free memory
+    free(A);
+    free(B);
+    free(hostRef);
+    free(gpuRef);
+
+    cudaFree(d_A);
+    cudaFree(d_B);
+    cudaFree(d_C);
+    cudaDeviceReset();
 
     return 0;
 }

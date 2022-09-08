@@ -119,7 +119,8 @@ int main(int argc, char **argv){
     sumMatrixOnGPU_2<<<grid,block>>>(d_A,d_B,d_C,nx,ny);
     cudaDeviceSynchronize();
     iElaps = cpuMSecond() - iStart;
-    printf("Matrix add cuda(1Dgrid-1Dblock) time cost %f ms\n",iElaps);
+    printf("Matrix add cuda time cost %f ms\n",iElaps);
+    printf("func<<<(%d %d):(%d %d)>>>\n",grid.x,grid.y,block.x,block.y);
 
     cudaMemcpy(gpuRef,d_C,nBytes,cudaMemcpyDeviceToHost);
     checkResults(hostRef,gpuRef,nx,ny);

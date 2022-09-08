@@ -55,11 +55,16 @@ void sumMatrix(float *A, float *B, float *hostRef, const int nx, const int ny){
 
 __global__
 void sumMatrixOnGPU(float *d_A, float *d_B, float *d_C, const int nx, const int ny){
+    int x_total = blockDim.x * gridDim.x;
+    int y_total = blockDim.y * gridDim.y;
     int ix = threadIdx.x + blockIdx.x * blockDim.x;
     int iy = threadIdx.y + blockIdx.y * blockDim.y;
-    int index = iy * nx + ix;
-    if(ix < nx && iy < ny){
-        d_C[index] = d_A[index] + d_B[index];
+    int index;
+    for(int i=0;i<ny / y_total;i++){
+        for(int j=0;j<nx / x_total;j++){
+            index = (ix + j * x_total) + nx * (iy + i * y_total);
+            d_C[index] = d_A[index] + d_B[index];
+        }
     }
     return ;
 }
@@ -111,7 +116,7 @@ int main(int argc, char **argv){
 
     // device code run
     dim3 block(32,32);
-    dim3 grid((nx + block.x - 1) / block.x, (ny + block.y - 1) / block.y);
+    dim3 grid(4,4);
     
     iStart = cpuMSecond();
     sumMatrixOnGPU<<<grid,block>>>(d_A,d_B,d_C,nx,ny);

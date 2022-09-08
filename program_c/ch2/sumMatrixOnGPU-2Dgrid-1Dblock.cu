@@ -54,9 +54,9 @@ void sumMatrix(float *A, float *B, float *hostRef, const int nx, const int ny){
 }
 
 __global__
-void sumMatrixOnGPU(float *d_A, float *d_B, float *d_C, const int nx, const int ny){
+void sumMatrixOnGPU_3(float *d_A, float *d_B, float *d_C, const int nx, const int ny){
     int ix = threadIdx.x + blockIdx.x * blockDim.x;
-    int iy = threadIdx.y + blockIdx.y * blockDim.y;
+    int iy = blockIdx.y;
     int index = iy * nx + ix;
     if(ix < nx && iy < ny){
         d_C[index] = d_A[index] + d_B[index];
@@ -110,11 +110,11 @@ int main(int argc, char **argv){
     printf("Matrix add time cost time %f ms\n",iElaps);
 
     // device code run
-    dim3 block(32,32);
-    dim3 grid((nx + block.x - 1) / block.x, (ny + block.y - 1) / block.y);
+    dim3 block(128);
+    dim3 grid((nx + block.x - 1) / block.x,ny);
     
     iStart = cpuMSecond();
-    sumMatrixOnGPU<<<grid,block>>>(d_A,d_B,d_C,nx,ny);
+    sumMatrixOnGPU_3<<<grid,block>>>(d_A,d_B,d_C,nx,ny);
     cudaDeviceSynchronize();
     iElaps = cpuMSecond() - iStart;
     printf("Matrix add cuda time cost %f ms\n",iElaps);

@@ -19,7 +19,7 @@ void initialData(float *ip, const unsigned int nxy){
     for(unsigned int i=0;i<nxy;i++){
         ip[i] = (float)(rand() & 0xFF) / 10.0f;
     }
-}                                                                                     \
+}                                                                                     
 
 void checkResult(float *hostRef, float *gpuRef, const int nx, const int ny){
     bool match = 1;

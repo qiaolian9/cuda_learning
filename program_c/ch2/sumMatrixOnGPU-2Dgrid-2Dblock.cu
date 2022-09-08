@@ -2,7 +2,6 @@
 #include<stdio.h>
 #include<sys/time.h>
 
-
 #define CHECK(call)                                                                      \
 {                                                                                        \
     const cudaError error = call;                                                        \

@@ -72,6 +72,9 @@ int main(int argc, char **argv){
     cudaDeviceProp deviceProp;
     CHECK(cudaGetDeviceProperties(&deviceProp,dev));
     printf("Using Device %d : %s\n",dev,deviceProp.name);
+    printf("max thread num : %d\n",deviceProp.maxThreadsPerBlock);
+    printf("max grid dimensions: (%d, %d, %d)\n",
+     deviceProp.maxGridSize[0], deviceProp.maxGridSize[1], deviceProp.maxGridSize[2]);
     CHECK(cudaSetDevice(dev));
 
     // initial data

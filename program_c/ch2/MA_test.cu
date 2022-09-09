@@ -4,7 +4,7 @@
 
 #define CHECK(call)                                                                      \
 {                                                                                        \
-    const cudaError error = call;                                                        \
+    const cudaError_t error = call;                                                        \
     if (error != cudaSuccess)                                                            \
     {                                                                                    \
         printf("Error: %s:%d \n",__FILE__,__LINE__);                                     \

@@ -3,8 +3,8 @@
 
 #define CHECK(call)                                                                      \
 {                                                                                        \
-    const cudaError error = call;                                                        \
-    if (error != cudaSucces)                                                             \
+    const cudaError_t error = call;                                                      \
+    if (error != cudaSuccess)                                                            \
     {                                                                                    \
         printf("Error: %s:%d \n",__FILE__,__LINE__);                                     \
         printf("code:%d, reason %s\n",error, cudaGetErrorString(error));                 \

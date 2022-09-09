@@ -47,8 +47,13 @@ void sumArrayOnGPU(float *d_A, float *d_B, float *d_C, const int N){
     int index = threadIdx.x;
     int block = blockIdx.x;
     int id = block * blockDim.x + index;
-    if(id < N){
-        d_C[id] = d_A[id] + d_B[id];
+    int x_total = blockDim.x * gridDim.x;
+    int cycle_x = (N + x_total - 1) / x_total;
+    for(int i=0;i<cycle_x;i++){
+        id += i * x_total;
+        if(id < N){
+            d_C[id] = d_A[id] + d_B[id];
+        }
     }
     return ;
 }
@@ -102,13 +107,14 @@ int main(int argc,char **argv){
     printf("host code time cost %f ms\n",iElaps);
 
     // device code
-    dim3 block(1023);
-    dim3 grid((N + block.x - 1) / block.x);
+    dim3 block(256);
+    dim3 grid((N / 2 + block.x - 1) / block.x);
     iStart = cpuSecond();
     sumArrayOnGPU<<<grid,block>>>(d_A,d_B,d_C,N);
     cudaDeviceSynchronize();
     iElaps = cpuSecond() - iStart;
-    printf("device code tiem cost %f ms\n",iElaps);
+    printf("Matrix add cuda time cost %f ms\n",iElaps);
+    printf("func<<<(%d %d):(%d %d)>>>\n",grid.x,grid.y,block.x,block.y);
 
     cudaMemcpy(gpuRef,d_C,size,cudaMemcpyDeviceToHost);
     checkResults(hostRef,gpuRef,N);

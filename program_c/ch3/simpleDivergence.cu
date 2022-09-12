@@ -56,8 +56,8 @@ int main(int argc, char **argv){
     cudaSetDevice(dev);
 
     // inti data
-    int n;
-    scanf("%d",&n);
+    int n = 20;
+    // scanf("%d",&n);
     n = 1<<n;
     int nBytes = n * sizeof(float);
     float *d_C;

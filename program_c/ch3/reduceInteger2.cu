@@ -66,12 +66,13 @@ void reduceInterleaved(int *g_idata, int *g_odata, unsigned int n){
 __global__
 void reduceUnrolling8(int *g_idata, int *g_odata, unsigned int n){
     unsigned int tid = threadIdx.x;
-    unsigned int index = blockDim.x * blockIdx.x * 8 + threadIdx.x;
+    unsigned int idx = blockDim.x * blockIdx.x * 8 + threadIdx.x;
     int *blockPtr = g_idata + blockDim.x * blockIdx.x * 8;
-    if(index >= n) return ;
+    if(idx >= n) return ;
     // unrolling 8 data block
-    for(int stride=1;stride<9;stride++){
-        blockPtr[tid] += blockPtr[tid+stride*blockDim.x];
+    for(int stride=1;stride<8;stride++){
+        if(tid+stride*blockDim.x < n)
+            blockPtr[tid] += blockPtr[tid+stride*blockDim.x];
     }
     __syncthreads();
     // loop interleaved
@@ -83,12 +84,16 @@ void reduceUnrolling8(int *g_idata, int *g_odata, unsigned int n){
     }
     // unrolling 32(warp)
     if(tid<32){
-        blockPtr[tid] += blockPtr[tid+16];
-        blockPtr[tid] += blockPtr[tid+8];
-        blockPtr[tid] += blockPtr[tid+4];
-        blockPtr[tid] += blockPtr[tid+2];
-        blockPtr[tid] += blockPtr[tid+1];
+        volatile int *vmem = blockPtr;
+        // int *vmem = blockPtr;
+        vmem[tid] += vmem[tid+32];
+        vmem[tid] += vmem[tid+16];
+        vmem[tid] += vmem[tid+8];
+        vmem[tid] += vmem[tid+4];
+        vmem[tid] += vmem[tid+2];
+        vmem[tid] += vmem[tid+1];
     }
+    if(tid==0) g_odata[blockIdx.x] = blockPtr[0];
 }
 
 int main(int argc, char **argv){
@@ -113,7 +118,6 @@ int main(int argc, char **argv){
     int *h_odata = (int*)malloc(grid.x * sizeof(int));
     int *tmp = (int*)malloc(nBytes);
     initialData(h_idata,n);
-
     memcpy(tmp,h_idata,nBytes);
 
     int *g_idata, *g_odata;
@@ -148,6 +152,7 @@ int main(int argc, char **argv){
     // reduceUnrolling8 gpu
     p = reduceUnrolling8;
     s = "reduceUnrolling8";
+    grid.x /= 8;
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
 

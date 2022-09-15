@@ -96,6 +96,46 @@ void reduceUnrolling8(int *g_idata, int *g_odata, unsigned int n){
     if(tid==0) g_odata[blockIdx.x] = blockPtr[0];
 }
 
+__global__
+void reduceCompleteUnrollWarp8(int *g_idata, int *g_odata, unsigned int n){
+    unsigned int tid = threadIdx.x;
+    unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x * 8;
+    int *blockPtr = g_idata + blockIdx.x * blockDim.x * 8;
+    if(idx >= n) return;
+    // unroll 8 (1 block -> 8 data block)
+    // unrolling 8 data block
+    for(int stride=1;stride<8;stride++){
+        if(tid+stride*blockDim.x < n)
+            blockPtr[tid] += blockPtr[tid+stride*blockDim.x];
+    }
+    __syncthreads();
+    // completeUnroll
+    if(blockDim.x >= 1024 && tid < 512)
+        blockPtr[tid] += blockPtr[tid+512];
+    __syncthreads();
+    if(blockDim.x >= 512 && tid < 256)
+        blockPtr[tid] += blockPtr[tid+256];
+    __syncthreads();
+    if(blockDim.x >= 256 && tid <128)
+        blockPtr[tid] += blockPtr[tid+128];
+    __syncthreads();
+    if(blockDim.x >= 128 && tid <64)
+        blockPtr[tid] += blockPtr[tid+64];
+    __syncthreads();
+    // unroll warp
+    if(tid<32){
+        volatile int* vmem = blockPtr;
+        vmem[tid] += vmem[tid+32];
+        vmem[tid] += vmem[tid+16];
+        vmem[tid] += vmem[tid+8];
+        vmem[tid] += vmem[tid+4];
+        vmem[tid] += vmem[tid+2];
+        vmem[tid] += vmem[tid+1];
+    }
+    if(tid==0) g_odata[blockIdx.x] = blockPtr[tid];
+    return ;
+}
+
 int main(int argc, char **argv){
     double iStart, iElaps;
     printf("%s starting...\n",argv[0]);
@@ -155,6 +195,13 @@ int main(int argc, char **argv){
     grid.x /= 8;
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
+
+    // reduceCompleteUnrollWarp8
+    p = reduceCompleteUnrollWarp8;
+    s = "reduceCompleteUnrollWarp8";
+    gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
+    checkResults(gpu_sum,tmp[0]);
+
 
     // free host/device memory
     free(h_idata);

@@ -15,19 +15,19 @@ void reduceNeighbored_cpu(int *tmp, unsigned int n, int stride){
 }
 
 __global__
-void nestedRecursiveReduce(int *g_idata, int *g_odata, unsigned int n, int stride){
+void nestedRecursiveReduce(int *g_idata, int *g_odata, unsigned int n, int stride,int iDim = 512){
     unsigned int tid = threadIdx.x;
     // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
     int *blockPtr = g_idata + blockIdx.x * blockDim.x;
     int *o = g_odata + blockIdx.x;
 
-    if(stride==1 && tid==0){
+    if(stride==2 && tid==0){
         o[tid] = blockPtr[0] + blockPtr[1];
         return;
     }
+    stride >>= 1;
     if(tid < stride) blockPtr[tid] += blockPtr[tid + stride];
     __syncthreads();
-    stride >>= 1;
     if(tid==0){
         nestedRecursiveReduce<<<1,stride>>>(blockPtr,o,n,stride);
         cudaDeviceSynchronize();
@@ -36,34 +36,54 @@ void nestedRecursiveReduce(int *g_idata, int *g_odata, unsigned int n, int strid
 }
 
 __global__
-void nestedRecursiveReduceNosync(int *g_idata, int *g_odata, unsigned int n, int stride){
+void nestedRecursiveReduceNosync(int *g_idata, int *g_odata, unsigned int n, int stride, int iDim = 512){
     unsigned int tid = threadIdx.x;
     // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
     int *blockPtr = g_idata + blockIdx.x * blockDim.x;
     int *o = g_odata + blockIdx.x;
 
-    if(stride==1 && tid==0){
+    if(stride==2 && tid==0){
         o[tid] = blockPtr[0] + blockPtr[1];
         return;
     }
-    if(tid < stride) blockPtr[tid] += blockPtr[tid + stride];
     stride >>= 1;
-    if(tid==0){
-        nestedRecursiveReduceNosync<<<1,stride>>>(blockPtr,o,n,stride);
+    if(tid < stride){
+        blockPtr[tid] += blockPtr[tid + stride];
+        if(tid==0) nestedRecursiveReduceNosync<<<1,stride>>>(blockPtr,o,n,stride);
+    }
+}
+
+
+__global__
+void nestedRecursiveReduce2(int *g_idata, int *g_odata, unsigned int n, int stride, int iDim){
+    unsigned int tid = threadIdx.x;
+    // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    int *blockPtr = g_idata + blockIdx.x * iDim;
+
+    if(stride==2 && tid==0){
+        g_odata[blockIdx.x] = blockPtr[0] + blockPtr[1];
+        return;
+    }
+    stride >>= 1;
+    if(tid < stride){
+        blockPtr[tid] += blockPtr[tid + stride];
+        if(tid==0 && blockIdx.x==0) nestedRecursiveReduce2<<<gridDim.x,stride>>>(g_idata,g_odata,n,stride,iDim);
     }
 }
 
 int main(int argc, char **argv){
     double iStart, iElaps;
-    void (*p)(int *, int *, unsigned int, int);
+    void (*p)(int *, int *, unsigned int, int, int);
     printf("%s starting...\n",argv[0]);
     int dev = 3;
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp,dev);
+    cudaSetDevice(dev);
     printf("Using Device %d : %s\n",dev,deviceProp.name);
 
     // initial Data
-    int n = 1 << 25;
+    int n = 1 << 20;
+    
     dim3 block(512);
     dim3 grid((n + block.x - 1) / block.x);
     size_t nBytes = n * sizeof(int);
@@ -90,15 +110,20 @@ int main(int argc, char **argv){
     s = "nestedRecursiveReduce";
     p = nestedRecursiveReduce;
     int gpu_sum;
-    gpu_sum = func_nested(p,g_idata,g_odata,block.x/2,h_idata,h_odata,n,nBytes,block,grid,s);
+    gpu_sum = func_nested(p,g_idata,g_odata,block.x,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
     
     // nestedRecursiveReduceNosync
     s = "nestedRecursiveReduceNosync";
     p = nestedRecursiveReduceNosync;
-    gpu_sum = func_nested(p,g_idata,g_odata,block.x/2,h_idata,h_odata,n,nBytes,block,grid,s);
+    gpu_sum = func_nested(p,g_idata,g_odata,block.x,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
 
+    // nestedRecursiveReduceNosync
+    s = "nestedRecursiveReduce2";
+    p = nestedRecursiveReduce2;
+    gpu_sum = func_nested(p,g_idata,g_odata,block.x,h_idata,h_odata,n,nBytes,block,grid,s);
+    checkResults(gpu_sum,tmp[0]);
 
     // free memory
     free(h_idata);

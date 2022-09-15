@@ -147,7 +147,7 @@ int main(int argc, char **argv){
     // kernel funcPtr
     void (*p)(int *, int *, unsigned int);
 
-    int n = 1 << 25;
+    int n = 1 << 24;
     // init cuda kernel config
     dim3 block(512);
     dim3 grid((n + block.x - 1) / block.x);
@@ -176,18 +176,21 @@ int main(int argc, char **argv){
     const char* s = "reduceNeighbored";
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
-    
+    printf("%d %d\n",gpu_sum,tmp[0]);
+
     // reduceNeighbored_2 gpu
     p = reduceNeighbored_2;
     s = "reduceNeighbored_2";
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
+    printf("%d %d\n",gpu_sum,tmp[0]);
     
     // reduceInterleaved gpu
     p = reduceInterleaved;
     s = "reduceInterleaved";
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
+    printf("%d %d\n",gpu_sum,tmp[0]);
 
     // reduceUnrolling8 gpu
     p = reduceUnrolling8;
@@ -195,12 +198,14 @@ int main(int argc, char **argv){
     grid.x /= 8;
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
+    printf("%d %d\n",gpu_sum,tmp[0]);
 
     // reduceCompleteUnrollWarp8
     p = reduceCompleteUnrollWarp8;
     s = "reduceCompleteUnrollWarp8";
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
+    printf("%d %d\n",gpu_sum,tmp[0]);
 
 
     // free host/device memory

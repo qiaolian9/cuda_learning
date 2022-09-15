@@ -1,6 +1,7 @@
 #include<stdio.h>
 #include<cuda_runtime.h>
 #include "./func/metric.h"
+#include "./func/func.h"
 #define M(x,n){x = (int*)malloc(n);}
 #define cudaM(x,n){cudaMalloc((void**)&x,n);}
 
@@ -14,7 +15,7 @@ void reduceNeighbered_cpu(int *tmp, unsigned int n, int stride){
 }
 
 __global__
-void nestedReduce(int *g_idata, int *g_odata, unsigned int n, int stride){
+void nestedRecursiveReduce(int *g_idata, int *g_odata, unsigned int n, int stride){
     unsigned int tid = threadIdx.x;
     // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
     int *blockPtr = g_idata + blockIdx.x * blockDim.x;
@@ -28,14 +29,33 @@ void nestedReduce(int *g_idata, int *g_odata, unsigned int n, int stride){
     __syncthreads();
     stride >>= 1;
     if(tid==0){
-        nestedReduce<<<1,stride>>>(blockPtr,o,n,stride);
+        nestedRecursiveReduce<<<1,stride>>>(blockPtr,o,n,stride);
         cudaDeviceSynchronize();
     }
     __syncthreads();
 }
 
+// __global__
+// void nestedRecursiveReduceNosync(int *g_idata, int *g_odata, unsigned int n, int stride){
+//     unsigned int tid = threadIdx.x;
+//     // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
+//     int *blockPtr = g_idata + blockIdx.x * blockDim.x;
+//     int *o = g_odata + blockIdx.x;
+
+//     if(stride==1 && tid==0){
+//         o[tid] = blockPtr[0] + blockPtr[1];
+//         return;
+//     }
+//     if(tid < stride) blockPtr[tid] += blockPtr[tid + stride];
+//     stride >>= 1;
+//     if(tid==0){
+//         nestedReduce<<<1,stride>>>(blockPtr,o,n,stride);
+//     }
+// }
+
 int main(int argc, char **argv){
     double iStart, iElaps;
+    void (*p)(int *, int *, unsigned int, int);
     printf("%s starting...\n",argv[0]);
     int dev = 3;
     cudaDeviceProp deviceProp;
@@ -67,17 +87,10 @@ int main(int argc, char **argv){
     printf("%s time cost %f ms\n",s,iElaps);
 
     // nestedReduce
-    s = "nestedReduce";
+    s = "nestedRecursiveReduce";
+    p = nestedRecursiveReduce;
     int gpu_sum = 0;
-    iStart = cpuMSecond();
-    nestedReduce<<<grid,block>>>(g_idata,g_odata,n,block.x/2);
-    cudaMemcpy(h_odata,g_odata,oBytes,cudaMemcpyDeviceToHost);
-    for(int i=0;i<grid.x;i++){
-        gpu_sum += h_odata[i];
-    }
-    iElaps = cpuMSecond() - iStart;
-    printf("%s cuda time cost %f ms;",s,iElaps);
-    printf("func <<<%d , %d>>>\n",grid.x,block.x);
+    gpu_sum = func_nested(p,g_idata,g_odata,block.x/2,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
     
     // free memory

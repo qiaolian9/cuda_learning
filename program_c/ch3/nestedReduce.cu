@@ -5,13 +5,13 @@
 #define M(x,n){x = (int*)malloc(n);}
 #define cudaM(x,n){cudaMalloc((void**)&x,n);}
 
-void reduceNeighbered_cpu(int *tmp, unsigned int n, int stride){
+void reduceNeighbored_cpu(int *tmp, unsigned int n, int stride){
     if(stride >= n) return;
     for(int i=0;i<n;i+=stride){
         tmp[i] += tmp[i+stride];
     }
     stride <<= 1;
-    reduceNeighbered_cpu(tmp,n,stride);
+    reduceNeighbored_cpu(tmp,n,stride);
 }
 
 __global__
@@ -35,23 +35,23 @@ void nestedRecursiveReduce(int *g_idata, int *g_odata, unsigned int n, int strid
     __syncthreads();
 }
 
-// __global__
-// void nestedRecursiveReduceNosync(int *g_idata, int *g_odata, unsigned int n, int stride){
-//     unsigned int tid = threadIdx.x;
-//     // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
-//     int *blockPtr = g_idata + blockIdx.x * blockDim.x;
-//     int *o = g_odata + blockIdx.x;
+__global__
+void nestedRecursiveReduceNosync(int *g_idata, int *g_odata, unsigned int n, int stride){
+    unsigned int tid = threadIdx.x;
+    // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    int *blockPtr = g_idata + blockIdx.x * blockDim.x;
+    int *o = g_odata + blockIdx.x;
 
-//     if(stride==1 && tid==0){
-//         o[tid] = blockPtr[0] + blockPtr[1];
-//         return;
-//     }
-//     if(tid < stride) blockPtr[tid] += blockPtr[tid + stride];
-//     stride >>= 1;
-//     if(tid==0){
-//         nestedReduce<<<1,stride>>>(blockPtr,o,n,stride);
-//     }
-// }
+    if(stride==1 && tid==0){
+        o[tid] = blockPtr[0] + blockPtr[1];
+        return;
+    }
+    if(tid < stride) blockPtr[tid] += blockPtr[tid + stride];
+    stride >>= 1;
+    if(tid==0){
+        nestedRecursiveReduceNosync<<<1,stride>>>(blockPtr,o,n,stride);
+    }
+}
 
 int main(int argc, char **argv){
     double iStart, iElaps;
@@ -79,20 +79,27 @@ int main(int argc, char **argv){
     cudaM(g_odata,oBytes);
     cudaMemcpy(g_idata,h_idata,nBytes,cudaMemcpyHostToDevice);
 
-    const char *s = "reduceNeighbered_cpu";
+    const char *s = "reduceNeighbored_cpu";
     // reduceNeighbered_cpu
     iStart = cpuMSecond();
-    reduceNeighbered_cpu(tmp,n,1);
+    reduceNeighbored_cpu(tmp,n,1);
     iElaps = cpuMSecond() - iStart;
     printf("%s time cost %f ms\n",s,iElaps);
 
     // nestedReduce
     s = "nestedRecursiveReduce";
     p = nestedRecursiveReduce;
-    int gpu_sum = 0;
+    int gpu_sum;
     gpu_sum = func_nested(p,g_idata,g_odata,block.x/2,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
     
+    // nestedRecursiveReduceNosync
+    s = "nestedRecursiveReduceNosync";
+    p = nestedRecursiveReduceNosync;
+    gpu_sum = func_nested(p,g_idata,g_odata,block.x/2,h_idata,h_odata,n,nBytes,block,grid,s);
+    checkResults(gpu_sum,tmp[0]);
+
+
     // free memory
     free(h_idata);
     free(h_odata);

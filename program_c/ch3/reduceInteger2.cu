@@ -3,7 +3,7 @@
 #include "./func/metric.h"
 #include "./func/func.h"
 
-void reduceNeighbered_cpu(int *tmp, unsigned int n, unsigned int stride){
+void reduceNeighbored_cpu(int *tmp, unsigned int n, unsigned int stride){
     if(stride>=n){
         return;
     }
@@ -11,11 +11,11 @@ void reduceNeighbered_cpu(int *tmp, unsigned int n, unsigned int stride){
         tmp[i] += tmp[i+stride];
     }
     stride *= 2;
-    reduceNeighbered_cpu(tmp,n,stride);
+    reduceNeighbored_cpu(tmp,n,stride);
 }
 
 __global__
-void reduceNeighbered(int *g_idata, int *g_odata, unsigned int n){
+void reduceNeighbored(int *g_idata, int *g_odata, unsigned int n){
     unsigned int tid = threadIdx.x;
     int *blockPtr = g_idata + blockDim.x * blockIdx.x;
     unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -31,7 +31,7 @@ void reduceNeighbered(int *g_idata, int *g_odata, unsigned int n){
 }
 
 __global__
-void reduceNeighbered_2(int *g_idata, int *g_odata, unsigned int n){
+void reduceNeighbored_2(int *g_idata, int *g_odata, unsigned int n){
     unsigned int tid = threadIdx.x;
     int *blockPtr = g_idata + blockDim.x * blockIdx.x;
     unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -164,22 +164,22 @@ int main(int argc, char **argv){
     cudaMalloc((void**)&g_idata,nBytes);
     cudaMalloc((void**)&g_odata,grid.x * sizeof(int));
     
-    // reduceNeighbered_cpu
+    // reduceNeighbored_cpu
     iStart = cpuMSecond();
-    reduceNeighbered_cpu(tmp,n,1);
+    reduceNeighbored_cpu(tmp,n,1);
     iElaps = cpuMSecond() - iStart;
-    printf("reduceNeighbered_cpu time cost : %f ms\n",iElaps);
+    printf("reduceNeighbored_cpu time cost : %f ms\n",iElaps);
 
     int gpu_sum;
-    // reduceNeighbered gpu
-    p = reduceNeighbered;
-    const char* s = "reduceNeighbered";
+    // reduceNeighbored gpu
+    p = reduceNeighbored;
+    const char* s = "reduceNeighbored";
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
     
-    // reduceNeighbered_2 gpu
-    p = reduceNeighbered_2;
-    s = "reduceNeighbered_2";
+    // reduceNeighbored_2 gpu
+    p = reduceNeighbored_2;
+    s = "reduceNeighbored_2";
     gpu_sum = func(p,g_idata,g_odata,h_idata,h_odata,n,nBytes,block,grid,s);
     checkResults(gpu_sum,tmp[0]);
     

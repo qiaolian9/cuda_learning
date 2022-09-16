@@ -38,7 +38,7 @@ void nestedRecursiveReduce(int *g_idata, int *g_odata, unsigned int n, int strid
 __global__
 void nestedRecursiveReduceNosync(int *g_idata, int *g_odata, unsigned int n, int stride, int iDim = 512){
     unsigned int tid = threadIdx.x;
-    // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    // unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x; 
     int *blockPtr = g_idata + blockIdx.x * blockDim.x;
     int *o = g_odata + blockIdx.x;
 
@@ -65,10 +65,9 @@ void nestedRecursiveReduce2(int *g_idata, int *g_odata, unsigned int n, int stri
         return;
     }
     stride >>= 1;
-    if(tid < stride){
+    if(tid < stride)
         blockPtr[tid] += blockPtr[tid + stride];
-        if(tid==0 && blockIdx.x==0) nestedRecursiveReduce2<<<gridDim.x,stride>>>(g_idata,g_odata,n,stride,iDim);
-    }
+    if(tid==0 && blockIdx.x==0) nestedRecursiveReduce2<<<gridDim.x,stride>>>(g_idata,g_odata,n,stride,iDim);
 }
 
 int main(int argc, char **argv){

@@ -13,7 +13,8 @@ void initialData(int *ip, const unsigned int n){
     time_t t;
     srand((unsigned) time(&t));
     for(unsigned int i=0;i<n;i++){
-        ip[i] = (int)(rand() & 0xFF);
+        // ip[i] = (int)(rand() & 0xFF);
+        ip[i] = 1;
     }
 }
 

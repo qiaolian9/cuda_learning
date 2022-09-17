@@ -30,6 +30,7 @@ void reduceNeighbored(int *g_idata, int *g_odata, unsigned int n){
     if(tid == 0) g_odata[blockIdx.x] = blockPtr[tid];
 }
 
+// warp divergent
 __global__
 void reduceNeighbored_2(int *g_idata, int *g_odata, unsigned int n){
     unsigned int tid = threadIdx.x;
@@ -47,6 +48,7 @@ void reduceNeighbored_2(int *g_idata, int *g_odata, unsigned int n){
     if(tid == 0) g_odata[blockIdx.x] = blockPtr[tid];
 }
 
+// bank conflict
 __global__
 void reduceInterleaved(int *g_idata, int *g_odata, unsigned int n){
     unsigned int tid = threadIdx.x;
@@ -63,6 +65,7 @@ void reduceInterleaved(int *g_idata, int *g_odata, unsigned int n){
     return ;
 }
 
+// idle thread && synchronize on 1 warp
 __global__
 void reduceUnrolling8(int *g_idata, int *g_odata, unsigned int n){
     unsigned int tid = threadIdx.x;
@@ -96,6 +99,7 @@ void reduceUnrolling8(int *g_idata, int *g_odata, unsigned int n){
     if(tid==0) g_odata[blockIdx.x] = blockPtr[0];
 }
 
+// complete unroll
 __global__
 void reduceCompleteUnrollWarp8(int *g_idata, int *g_odata, unsigned int n){
     unsigned int tid = threadIdx.x;

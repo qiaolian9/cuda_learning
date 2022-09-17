@@ -81,7 +81,7 @@ int main(int argc, char **argv){
     printf("Using Device %d : %s\n",dev,deviceProp.name);
 
     // initial Data
-    int n = 1 << 20;
+    int n = 1 << 23;
     
     dim3 block(512);
     dim3 grid((n + block.x - 1) / block.x);

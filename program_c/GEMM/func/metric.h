@@ -20,7 +20,8 @@ void initialData(T *__restrict__ ip, const int n){
     time_t t;
     srand((unsigned) time(&t));
     for(int i=0;i<n;i++){
-        ip[i] = (T)(rand() & 0xFF);
+        // ip[i] = (T)(rand() & 0xFF);
+        ip[i] = 1.0f;
     }
 }
 

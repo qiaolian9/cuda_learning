@@ -151,20 +151,20 @@ int main(int argc, char **argv){
     // initial record tool
     const char* s = "cpu-GEMM";
     int nIter = 100;
-    double iStart, iElaps;
+    // double iStart, iElaps;
     float gElaps;
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     // cpu GEMM
-    iStart = cpuMsecond();
-    for(int i=0;i<10;i++){
-        cpuGemm<float>(h_A,h_B,tmp,m,n,k);
-    }
-    iElaps = (cpuMsecond() - iStart) / (float)nIter;
-    gigaFlops = (flopsPerMatrixMul*1e-9) / (iElaps * 1e-3);
-    printf("%s Time= %f ms, Performance= %f GFlops/s\n",s,iElaps / 10.0f,gigaFlops);
+    // iStart = cpuMsecond();
+    // for(int i=0;i<10;i++){
+    //     cpuGemm<float>(h_A,h_B,tmp,m,n,k);
+    // }
+    // iElaps = (cpuMsecond() - iStart) / 10.0f;
+    // gigaFlops = (flopsPerMatrixMul*1e-12) / (iElaps * 1e-3);
+    // printf("%s Time= %f ms, Performance= %f TFlops/s\n",s,iElaps,gigaFlops);
 
     // cuBLAS
     s = "cuBLAS";
@@ -184,10 +184,11 @@ int main(int argc, char **argv){
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&gElaps,start,stop);
-    gigaFlops = (flopsPerMatrixMul*1e-9) / (gElaps * 1e-3);
-    printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f GFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
-    cudaMemcpy(h_C,d_C,nBytesC,cudaMemcpyDeviceToHost);
-    checkResults<float>(tmp,h_C,m*n);
+    gElaps /= nIter;
+    gigaFlops = (flopsPerMatrixMul*1e-12) / (gElaps * 1e-3);
+    printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f TFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
+    cudaMemcpy(tmp,d_C,nBytesC,cudaMemcpyDeviceToHost);
+    // checkResults<float>(tmp,h_C,m*n);
 
     // simple GEMM
     s = "SimpleGemm";
@@ -199,8 +200,9 @@ int main(int argc, char **argv){
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&gElaps,start,stop);
-    gigaFlops = (flopsPerMatrixMul*1e-9) / (gElaps * 1e-3);
-    printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f GFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
+    gElaps /= nIter;
+    gigaFlops = (flopsPerMatrixMul*1e-12) / (gElaps * 1e-3);
+    printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f TFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
     cudaMemcpy(h_C,d_C,nBytesC,cudaMemcpyDeviceToHost);
     checkResults<float>(tmp,h_C,m*n);
 
@@ -219,8 +221,9 @@ int main(int argc, char **argv){
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&gElaps,start,stop);
-    gigaFlops = (flopsPerMatrixMul*1e-9) / (gElaps * 1e-3);
-    printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f GFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
+    gElaps /= nIter;
+    gigaFlops = (flopsPerMatrixMul*1e-12) / (gElaps * 1e-3);
+    printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f TFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
     cudaMemcpy(h_C,d_C,nBytesC,cudaMemcpyDeviceToHost);
     checkResults<float>(tmp,h_C,m*n);
     

@@ -360,7 +360,7 @@ int main(int argc, char **argv){
 
     // initial record tool
     const char* s = "cpu-GEMM";
-    int nIter = 1000;
+    int nIter = 500;
     // double iStart, iElaps;
     float gElaps;
     cudaEvent_t start, stop;
@@ -427,20 +427,20 @@ int main(int argc, char **argv){
     grid.x = n / bn;
     grid.y = m / bm;
     // blockGemm
-    s = "blockGemm";
-    cudaEventRecord(start);
-    for(int i=0;i<nIter;i++){
-        blockGemm<float,bm,bn,bk,tm,tn><<<grid,block>>>(d_A,d_B,d_C,m,n,k);
-        cudaDeviceSynchronize();
-    }
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&gElaps,start,stop);
-    gElaps /= nIter;
-    gigaFlops = (flopsPerMatrixMul*1e-12) / (gElaps * 1e-3);
-    printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f TFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
-    cudaMemcpy(h_C,d_C,nBytesC,cudaMemcpyDeviceToHost);
-    checkResults<float>(tmp,h_C,m,n);
+    // s = "blockGemm";
+    // cudaEventRecord(start);
+    // for(int i=0;i<nIter;i++){
+    //     blockGemm<float,bm,bn,bk,tm,tn><<<grid,block>>>(d_A,d_B,d_C,m,n,k);
+    //     cudaDeviceSynchronize();
+    // }
+    // cudaEventRecord(stop);
+    // cudaEventSynchronize(stop);
+    // cudaEventElapsedTime(&gElaps,start,stop);
+    // gElaps /= nIter;
+    // gigaFlops = (flopsPerMatrixMul*1e-12) / (gElaps * 1e-3);
+    // printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f TFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
+    // cudaMemcpy(h_C,d_C,nBytesC,cudaMemcpyDeviceToHost);
+    // checkResults<float>(tmp,h_C,m,n);
     
     // sgemm_v1
     s = "sgemm_v1";

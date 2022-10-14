@@ -38,12 +38,15 @@ void SimpleGemm(
 
     if(x >= m || y >= n) return;
     // simple loop
-    C[index] = 0;
+    T c = 0;
     for(int i=0;i<k;i++){
-        C[index] += A[y*n+i] * B[i*n+x];
+        c += A[y*n+i] * B[i*n+x];
     }
+    C[index] = c;
     return ;
 }
+
+
 
 // kernel 2 : block GEMM
 // load M : m*n*k*(1/bm + 1/bn)
@@ -64,8 +67,8 @@ void blockGemm(
     const int N, 
     const int K){
     // shared memory && register
-    __shared__ T As[BLOCK_SIZE_M][BLOCK_SIZE_K];
-    __shared__ T Bs[BLOCK_SIZE_K][BLOCK_SIZE_N];
+    __shared__ T As[2][BLOCK_SIZE_M][BLOCK_SIZE_K];
+    __shared__ T Bs[2][BLOCK_SIZE_K][BLOCK_SIZE_N];
     T accum[THREAD_SIZE_Y][THREAD_SIZE_X] = {0};
 
     // block index
@@ -90,11 +93,12 @@ void blockGemm(
     
     A = (A + (by*BLOCK_SIZE_M)*K);
     B = (B + bx * BLOCK_SIZE_N);
+    int write_stage_idx = 0;
     for(int i = 0; i < K; i += BLOCK_SIZE_K){
         // load As
         #pragma unroll
         for(int ldg_a_y = 0; ldg_a_y < BLOCK_SIZE_M; ldg_a_y += A_TILE_ROW_STRIDE){
-            FETCH_FLOAT4(As[ldg_a_y + A_TILE_ROW_START][A_TILE_COL]) = FETCH_FLOAT4(A[OFFSET(
+            FETCH_FLOAT4(As[write_stage_idx][ldg_a_y + A_TILE_ROW_START][A_TILE_COL]) = FETCH_FLOAT4(A[OFFSET(
                 A_TILE_ROW_START + ldg_a_y,
                 i + A_TILE_COL,
                 K)]);
@@ -102,20 +106,24 @@ void blockGemm(
         // load Bs
         #pragma unroll
         for(int j = 0; j < BLOCK_SIZE_K; j += B_TILE_ROW_STRIDE){
-            FETCH_FLOAT4(Bs[B_TILE_ROW_START + j][B_TILE_COL]) = FETCH_FLOAT4(B[OFFSET(
+            FETCH_FLOAT4(Bs[write_stage_idx][B_TILE_ROW_START + j][B_TILE_COL]) = FETCH_FLOAT4(B[OFFSET(
                 B_TILE_ROW_START + j + i,
                 B_TILE_COL,
                 N)]);
         }
         __syncthreads();
         // calculate
+        #pragma unroll
         for(int jy = 0; jy < THREAD_SIZE_Y; jy++){
+            #pragma unroll
             for(int jx = 0; jx < THREAD_SIZE_X; jx++){
+                #pragma unroll
                 for(int jk=0;jk<BLOCK_SIZE_K;jk++){
-                    accum[jy][jx] += As[jy+ty*THREAD_SIZE_Y][jk] * Bs[jk][jx+tx*THREAD_SIZE_X];
+                    accum[jy][jx] += As[write_stage_idx][jy+ty*THREAD_SIZE_Y][jk] * Bs[write_stage_idx][jk][jx+tx*THREAD_SIZE_X];
                 }
             }
         }
+        write_stage_idx ^= 1;
     }
     // store C from register to global memory
     #pragma unroll
@@ -359,22 +367,14 @@ int main(int argc, char **argv){
 
 
     // initial record tool
-    const char* s = "cpu-GEMM";
+    const char* s;
     int nIter = 500;
-    // double iStart, iElaps;
+    double iStart, iElaps;
     float gElaps;
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
-    // cpu GEMM
-    // iStart = cpuMsecond();
-    // for(int i=0;i<10;i++){
-    //     cpuGemm<float>(h_A,h_B,tmp,m,n,k);
-    // }
-    // iElaps = (cpuMsecond() - iStart) / 10.0f;
-    // gigaFlops = (flopsPerMatrixMul*1e-12) / (iElaps * 1e-3);
-    // printf("%s Time= %f ms, Performance= %f TFlops/s\n",s,iElaps,gigaFlops);
 
     // cuBLAS
     s = "cuBLAS";
@@ -427,20 +427,20 @@ int main(int argc, char **argv){
     grid.x = n / bn;
     grid.y = m / bm;
     // blockGemm
-    // s = "blockGemm";
-    // cudaEventRecord(start);
-    // for(int i=0;i<nIter;i++){
-    //     blockGemm<float,bm,bn,bk,tm,tn><<<grid,block>>>(d_A,d_B,d_C,m,n,k);
-    //     cudaDeviceSynchronize();
-    // }
-    // cudaEventRecord(stop);
-    // cudaEventSynchronize(stop);
-    // cudaEventElapsedTime(&gElaps,start,stop);
-    // gElaps /= nIter;
-    // gigaFlops = (flopsPerMatrixMul*1e-12) / (gElaps * 1e-3);
-    // printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f TFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
-    // cudaMemcpy(h_C,d_C,nBytesC,cudaMemcpyDeviceToHost);
-    // checkResults<float>(tmp,h_C,m,n);
+    s = "blockGemm";
+    cudaEventRecord(start);
+    for(int i=0;i<nIter;i++){
+        blockGemm<float,bm,bn,bk,tm,tn><<<grid,block>>>(d_A,d_B,d_C,m,n,k);
+        cudaDeviceSynchronize();
+    }
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&gElaps,start,stop);
+    gElaps /= nIter;
+    gigaFlops = (flopsPerMatrixMul*1e-12) / (gElaps * 1e-3);
+    printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f TFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
+    cudaMemcpy(h_C,d_C,nBytesC,cudaMemcpyDeviceToHost);
+    checkResults<float>(tmp,h_C,m,n);
     
     // sgemm_v1
     s = "sgemm_v1";
@@ -456,6 +456,17 @@ int main(int argc, char **argv){
     gigaFlops = (flopsPerMatrixMul*1e-12) / (gElaps * 1e-3);
     printf("%s<grid(%d,%d),block(%d,%d)> Time= %f ms, Performance= %f TFlops/s\n",s,grid.x,grid.y,block.x,block.y,gElaps,gigaFlops);
     cudaMemcpy(h_C,d_C,nBytesC,cudaMemcpyDeviceToHost);
+    checkResults<float>(tmp,h_C,m,n);
+
+    // cpu GEMM
+    s = "cpugemm";
+    iStart = cpuMsecond();
+    for(int i=0;i<10;i++){
+        cpuGemm<float>(h_A,h_B,h_C,m,n,k);
+    }
+    iElaps = (cpuMsecond() - iStart) / 10.0f;
+    gigaFlops = (flopsPerMatrixMul*1e-12) / (iElaps * 1e-3);
+    printf("%s Time= %f ms, Performance= %f TFlops/s\n",s,iElaps,gigaFlops);
     checkResults<float>(tmp,h_C,m,n);
 
     // free memory

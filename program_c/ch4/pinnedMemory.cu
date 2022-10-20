@@ -1,6 +1,7 @@
 /* 固定内存：Device端可以直接访问Host端固定内存中的数据、也可通过cudaMemcpy进行数据拷贝到device端的global中
     设计原因：Host端内存采用可分页的内存（虚拟地址），GPU无法得知Host端操作系统执行的状态；
     完成memcpy时：1.开辟固定内存--->2.将可分页内存中数据拷贝到固定内存中--->3.将固定内存中数据拷贝到Device的global memory中
+    cudaError_t cudaMallocHost(void **devPtr, size_t count)
 */
 #include<cuda_runtime.h>
 #include<stdio.h>

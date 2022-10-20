@@ -1,3 +1,7 @@
+/*
+零拷贝内存：gpu端可直接访问host端内存中的值
+cudaError_t cudaHostAlloc(void **pHost, size_t count, unsigned int flags)
+*/
 #include<cuda_runtime.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -89,5 +93,12 @@ int main(int argc, char** argv){
     }
     std::cout << sumA << " " << hA[0] << ":" << (sumA == hA[0]) << std::endl;
 
+    // free memory
+    free(hA);
+    cudaFree(dB);
+    // // normal free
+    // free(hB);
+    cudaFree(dC);
+    cudaDeviceReset();
     return 0;
 }

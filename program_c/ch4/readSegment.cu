@@ -19,7 +19,7 @@
 template<typename T>
 void sumArraysOnHost(T *__restrict__ hC, T *__restrict__ hA, T *__restrict__ hB, unsigned int n, int offset){
     for(int i = offset ; i < n ; i++){
-        hC[i] = hA[i] + hB[i];
+        hC[i - offset] = hA[i] + hB[i];
     }
     return ;
 }
@@ -31,11 +31,10 @@ void sumArrays(T *__restrict__ devC, T *__restrict__ devA, T *__restrict__ devB,
     int tx = threadIdx.x;
     int bx = blockIdx.x;
     int tid = bx * blockDim.x + tx;
-    int idx = tid * 4 + offset;
+    int idx = tid + offset;
 
     if(idx >= n) return;
-    for(int i = 0 ; i < 4 ; i++)
-        devC[idx + i] = devA[idx + i] + devB[idx + i];
+    devC[tid] = devA[idx] + devB[idx];
 }
 
 int main(int argc, char **argv){
@@ -78,7 +77,7 @@ int main(int argc, char **argv){
 
     // exp excuate
     dim3 block(512);
-    dim3 grid((n - offset + block.x - 1) / (block.x * 4));
+    dim3 grid((n - offset + block.x - 1) / block.x);
     sumArraysOnHost<float>(C, A, B, n, offset);
     cudaEventRecord(start);
     for(int i = 0 ; i < nIter ; i++){
@@ -93,7 +92,7 @@ int main(int argc, char **argv){
 
     // result check
     cudaMemcpy(hostRef, gpuC, nBytes, cudaMemcpyDeviceToHost);
-    resCheck(C, hostRef, n);
+    resCheck(C, hostRef, n - offset);
 
     // free memory
     free(A);

@@ -48,8 +48,8 @@ void SimpleGemm(
 
 
 
-// kernel 2 : block GEMM
-// load M : m*n*k*(1/bm + 1/bn)
+// kernel 2 : block GEMM on shared memory
+// global memory load: 2MNK -> MNK(1/m + 1/n)
 template<
     typename T, 
     const int BLOCK_SIZE_M,
@@ -139,7 +139,8 @@ void blockGemm(
     return ;
 }
 
-// kernel 3 : block sgemm
+// kernel 3 : block sgemm on register
+// shared memory load: 2mnk -> mnk(1/rm + 1/rn)
 template<
     typename T, 
     const int BLOCK_SIZE_M,

@@ -37,6 +37,8 @@ void sumArrays(T *__restrict__ devC, T *__restrict__ devA, T *__restrict__ devB,
     devC[tid] = devA[idx] + devB[idx];
 }
 
+int8_t
+
 int main(int argc, char **argv){
     // set up environment
     printf("%s starting...\n",argv[0]);
@@ -75,7 +77,7 @@ int main(int argc, char **argv){
     cudaMemcpy(gpuA, A, nBytes, cudaMemcpyHostToDevice);
     cudaMemcpy(gpuB, B, nBytes, cudaMemcpyHostToDevice);
 
-    // exp excuate
+    // exp execute
     dim3 block(512);
     dim3 grid((n - offset + block.x - 1) / block.x);
     sumArraysOnHost<float>(C, A, B, n, offset);

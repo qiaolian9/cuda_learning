@@ -10,5 +10,4 @@ CPU ——> GPU(global memory) ——> block shared memory ——> block registe
 | FP32 Peak flops | 14.9T|
 | CUDA CORE | 5120 |
 
-
 ![contrast](./contrast.png)

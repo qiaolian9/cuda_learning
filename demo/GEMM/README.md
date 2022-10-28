@@ -11,7 +11,4 @@ CPU ——> GPU(global memory) ——> block shared memory ——> block registe
 | CUDA CORE | 5120 |
 
 
-
-Peak flops: 15T
-
-![contrast](./pic/contrast.png)
+![contrast](./contrast.png)

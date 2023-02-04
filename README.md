@@ -4,4 +4,4 @@
 ch1 done; ch2 done; ch3 done; ch4 ing; 
 
 ## demo: my test
-GEMM done; ConvOp ing;
+GEMM done; ConvOp ing~;
